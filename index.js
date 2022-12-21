@@ -1,4 +1,5 @@
 const puppeteer = require("puppeteer");
+const fs = require("fs");
 
 (async () => {
   const browser = await puppeteer.launch({
@@ -12,15 +13,13 @@ const puppeteer = require("puppeteer");
     "https://www.amazon.com/s?i=computers-intl-ship&bbn=16225007011&rh=n%3A16225007011%2Cn%3A11036071%2Cp_36%3A1253503011&dc&fs=true&qid=1635596580&rnid=16225007011&ref=sr_pg_1"
   );
 
-  // let's just call them tweetHandle
-  const productsHandles = await page.$$(
-    ".s-main-slot.s-result-list.s-search-results.sg-row > .s-result-item"
-  );
-
-  let products = [];
-
   let btnDisabled = false;
   while (!btnDisabled) {
+    await page.waitForSelector('[data-cel-widget="search_result_0"]');
+    const productsHandles = await page.$$(
+      "div.s-main-slot.s-result-list.s-search-results.sg-row > .s-result-item"
+    );
+
     for (const producthandle of productsHandles) {
       let title = "Null";
       let price = "Null";
@@ -48,20 +47,24 @@ const puppeteer = require("puppeteer");
       } catch (error) {}
 
       if (title != "Null") {
-        products.push({ title, price, image });
-      }     
+        fs.appendFile("result.csv", `${title.replace(/,/g,'.')},${price},${image}\n`, (err) => {
+          if (err) throw err;
+        });
+      }
     }
 
-    console.log(products);
     await page.waitForSelector(".s-pagination-next", { visible: true });
     const is_disabled =
       (await page.$("span.s-pagination-next.s-pagination-disabled")) !== null;
 
-    //console.log(is_disabled);
     btnDisabled = is_disabled;
 
     if (!is_disabled) {
       await page.click(".s-pagination-next");
+      page.waitForNavigation();
     }
   }
+
+  await browser.close();
+  
 })();
